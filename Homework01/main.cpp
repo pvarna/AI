@@ -3,6 +3,10 @@
 #include <string>
 #include <cmath>
 #include <utility>
+#include <unordered_map>
+
+
+std::unordered_map<int, int> correctIndeces;
 
 class BlocksState
 {
@@ -10,10 +14,11 @@ private:
     std::vector<std::vector<int>> blocks;
     int manhattanDistance;
     std::string road;
+    std::size_t level;
 
 public:
-    BlocksState(const std::vector<std::vector<int>>& blocks, int manhattanDistance, const std::string& road)
-        : blocks(blocks), manhattanDistance(manhattanDistance), road(road) {}
+    BlocksState(const std::vector<std::vector<int>>& blocks, int manhattanDistance, const std::string& road, std::size_t level)
+        : blocks(blocks), manhattanDistance(manhattanDistance), road(road), level(level) {}
 
     bool operator == (const BlocksState& other) const
     {
@@ -34,91 +39,73 @@ public:
     {
         return this->road;
     }
+
+    const std::size_t getLevel() const
+    {
+        return this->level;
+    }
 };
 
 struct Node
+{
+    BlocksState* value;
+    Node* next;
+
+    Node(BlocksState* value, Node* next = nullptr)
+        : value(value), next(next) {}
+};
+
+#include <queue>
+
+struct CompareBlocksState
+{
+    bool operator()(const Node* lhs, const Node* rhs) const
     {
-        BlocksState* value;
-        Node* next;
+        return lhs->value->getManhattanDistance() + lhs->value->getLevel() > rhs->value->getManhattanDistance() + rhs->value->getLevel();
+    }
+};
 
-        Node(BlocksState* value, Node* next = nullptr)
-            : value(value), next(next) {}
-    };
-
-class PriorityStack
+class PriorityQueue
 {
 private:
-    Node* head;
+    std::priority_queue<Node*, std::vector<Node*>, CompareBlocksState> queue;
 
 public:
-    PriorityStack(BlocksState* initialState)
-        : head(new Node(initialState)) {}
+    PriorityQueue(BlocksState* initialState)
+    {
+        queue.push(new Node(initialState));
+    }
 
     Node* pop()
     {
-        if (!this->head)
+        if (queue.empty())
         {
             return nullptr;
         }
 
-        Node* result = this->head;
-        this->head = this->head->next;
-    
+        Node* result = queue.top();
+        queue.pop();
+
         return result;
     }
 
     std::size_t size() const
     {
-        Node* temp = this->head;
-        std::size_t result = 0;
-
-        while (temp)
-        {
-            ++result;
-            temp = temp->next;
-        }
-
-        return result;
+        return queue.size();
     }
 
     void push(BlocksState* newState)
     {
-        Node* newNode = new Node(newState);
+        queue.push(new Node(newState));
+    }
 
-        if (!this->head)
+    ~PriorityQueue()
+    {
+        while (!queue.empty())
         {
-            this->head = newNode;
-            return;
-        }
-
-        if (this->head->value->getManhattanDistance() > newNode->value->getManhattanDistance())
-        {
-            newNode->next = this->head;
-            this->head = newNode;
-        }
-        else
-        {
-            Node* prev = this->head;
-            Node* current = this->head->next;
-
-            while (true)
-            {
-                if (!current)
-                {
-                    prev->next = newNode;
-                    break;
-                }
-
-                if (current->value->getManhattanDistance() > newNode->value->getManhattanDistance())
-                {
-                    prev->next = newNode;
-                    newNode->next = current;
-                    break;
-                }
-
-                current = current->next;
-                prev = prev->next;
-            }
+            Node* top = queue.top();
+            queue.pop();
+            delete top;  
         }
     }
 };
@@ -129,7 +116,7 @@ int getManhattanDistance(const std::vector<std::vector<int>>& blocks)
 
     for (int i = 0; i < blocks.size(); ++i)
     {
-        for (int j = 0; j < blocks[0].size(); ++j)
+        for (int j = 0; j < blocks.size(); ++j)
         {
             int blockValue = blocks[i][j];
 
@@ -138,8 +125,8 @@ int getManhattanDistance(const std::vector<std::vector<int>>& blocks)
                 continue;
             }
 
-            int targetX = (blockValue - 1) / blocks[0].size();
-            int targetY = (blockValue - 1) % blocks[0].size();
+            int targetX = correctIndeces[blockValue] / blocks.size();
+            int targetY = correctIndeces[blockValue] % blocks.size();
 
             result += (std::abs(i - targetX) + std::abs(j - targetY));
         }
@@ -164,7 +151,7 @@ std::pair<int, int> getZeroCoordinates(const std::vector<std::vector<int>> block
     return std::make_pair(-1, -1);
 }
 
-BlocksState* createBlocksState(const std::vector<std::vector<int>>& blocks, int zeroX, int zeroY, int newZeroX, int newZeroY, const std::string& road)
+BlocksState* createBlocksState(const std::vector<std::vector<int>>& blocks, int zeroX, int zeroY, int newZeroX, int newZeroY, const std::string& road, std::size_t level)
 {
     if (newZeroX < 0 || newZeroX >= blocks.size() || newZeroY < 0 || newZeroY >= blocks[0].size())
     {
@@ -175,7 +162,7 @@ BlocksState* createBlocksState(const std::vector<std::vector<int>>& blocks, int 
     newBlocks[zeroX][zeroY] = newBlocks[newZeroX][newZeroY];
     newBlocks[newZeroX][newZeroY] = 0;
 
-    return new BlocksState(newBlocks, getManhattanDistance(newBlocks), road);
+    return new BlocksState(newBlocks, getManhattanDistance(newBlocks), road, level + 1);
 }
 
 bool contains(const std::vector<BlocksState*>& states, BlocksState* state)
@@ -191,22 +178,43 @@ bool contains(const std::vector<BlocksState*>& states, BlocksState* state)
     return false;
 }
 
-void print (const std::vector<std::vector<int>>& blocks)
+int getInversionsCount(const std::vector<std::vector<int>>& blocks)
 {
-    for (std::size_t i = 0; i < blocks.size(); ++i)
+    std::vector<int> arr;
+
+    for (auto row : blocks)
     {
-        for (std::size_t j = 0; j < blocks[0].size(); ++j)
+        for (auto element : row)
         {
-            std::cout << blocks[i][j] << " ";
+            arr.push_back(element);
         }
-        std::cout << std::endl;
     }
-    std::cout << "-----------" << std::endl;
+
+    int inversionsCount = 0;
+    for (int i = 0; i < arr.size() - 1; ++i)
+    {
+        for (int j = i + 1; j < arr.size(); ++j)
+        {
+            if (arr[j] && arr[i] &&  arr[i] > arr[j])
+            {
+                ++inversionsCount;
+            }
+        }
+    }
+    return inversionsCount;
 }
 
-BlocksState* solve(PriorityStack& stack, std::vector<BlocksState*>& visited)
+bool isSolvable(const std::vector<std::vector<int>>& blocks)
 {
-    Node* currentState = stack.pop();
+    int inversionsCount = getInversionsCount(blocks);
+ 
+    return (inversionsCount % 2 == 0);
+}
+
+
+BlocksState* solve(PriorityQueue& queue, std::vector<BlocksState*>& visited)
+{
+    Node* currentState = queue.pop();
 
     while (currentState)
     {
@@ -227,7 +235,7 @@ BlocksState* solve(PriorityStack& stack, std::vector<BlocksState*>& visited)
             ++direction;
             std::string road = currentState->value->getRoad() + std::to_string(direction);
 
-            BlocksState* newBlocksState = createBlocksState(currentState->value->getBlocks(), zeroX, zeroY, move.first, move.second, road);
+            BlocksState* newBlocksState = createBlocksState(currentState->value->getBlocks(), zeroX, zeroY, move.first, move.second, road, currentState->value->getLevel());
 
             if (newBlocksState)
             {
@@ -238,54 +246,43 @@ BlocksState* solve(PriorityStack& stack, std::vector<BlocksState*>& visited)
 
                 if (!contains(visited, newBlocksState))
                 {
-                    stack.push(newBlocksState);
+                    queue.push(newBlocksState);
                     visited.push_back(newBlocksState);
+                }
+                else
+                {
+                    delete newBlocksState;
                 }
             }
         }
 
-        currentState = stack.pop();
+        delete currentState;
+        currentState = queue.pop();
     }
 
     return nullptr;
 }
 
-bool isSolvable(const std::vector<std::vector<int>>& blocks) 
-{
-    std::vector<int> flatBlocks;
-    for (const auto& row : blocks) 
-    {
-        flatBlocks.insert(flatBlocks.end(), row.begin(), row.end());
-    }
-    
-    int inversions = 0;
-    for (int i = 0; i < flatBlocks.size(); ++i) 
-    {
-        for (int j = i + 1; j < flatBlocks.size(); ++j) 
-        {
-            if (flatBlocks[i] > 0 && flatBlocks[j] > 0 && flatBlocks[i] > flatBlocks[j]) 
-            {
-                inversions++;
-            }
-        }
-    }
-    
-    std::pair<int, int> zeroCoordinates = getZeroCoordinates(blocks);
-    int zeroRow = zeroCoordinates.first + 1; // Add 1 because rows are 1-based
-    
-    // Check if the puzzle is solvable
-    return (inversions % 2 == 0 && zeroRow % 2 == 1) || (inversions % 2 == 1 && zeroRow % 2 == 0);
-}
-
-
 int main ()
 {
     std::size_t n;
     std::cin >> n;
-    std::vector<std::vector<int>> blocks(std::sqrt(n + 1), std::vector<int>(std::sqrt(n + 1)));
+    std::size_t side = std::sqrt(n + 1);
+    std::vector<std::vector<int>> blocks(side, std::vector<int>(side));
 
-    // int i;
-    // std::cin >> i;
+    int input_i;
+    std::cin >> input_i;
+    input_i = (input_i == -1) ? n : input_i;
+
+    for (std::size_t i = 0; i < input_i; ++i)
+    {
+        correctIndeces.insert(std::make_pair(i + 1, i));
+    }
+    correctIndeces.insert(std::make_pair(0, input_i));
+    for (std::size_t i = input_i + 1; i <= n; ++i)
+    {
+        correctIndeces.insert(std::make_pair(i, i));
+    }
 
     for (std::size_t k = 0; k * k < n + 1; ++k)
     {
@@ -295,24 +292,22 @@ int main ()
         }
     }
 
-    if (!isSolvable(blocks))
+    BlocksState* initialState = new BlocksState(blocks, getManhattanDistance(blocks), "", 0);
+
+    if (!isSolvable(initialState->getBlocks()))
     {
-        std::cout << "No solutions" << std::endl;
-        return 1;
+        std::cout << -1 << std::endl;
     }
-
-    BlocksState* initialState = new BlocksState(blocks, getManhattanDistance(blocks), "");
-
-    if (initialState->getManhattanDistance() == 0)
+    else if (initialState->getManhattanDistance() == 0)
     {
-        std::cout << "The input is the solution" << std::endl;
+        std::cout << 0 << std::endl;
     }
     else
     {
-        PriorityStack stack(initialState);
+        PriorityQueue queue(initialState);
         std::vector<BlocksState*> visited;
 
-        BlocksState* solution  = solve(stack, visited);
+        BlocksState* solution  = solve(queue, visited);
 
         if (solution)
         {
@@ -338,10 +333,21 @@ int main ()
                     break;
                 }
             }
+
+            delete solution;
         }
         else
         {
-            std::cout << "No solutions" << std::endl;
+            std::cout << -1 << std::endl;
+        }
+
+        for (BlocksState* state : visited)
+        {
+            delete state;  // Deallocate all visited BlocksState objects
         }
     }
+
+    delete initialState;
+
+    return 0;
 }
