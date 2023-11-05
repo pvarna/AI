@@ -4,10 +4,10 @@
 #include <cmath>
 #include <utility>
 #include <unordered_map>
-
+#include <queue>
+#include <chrono>
 
 std::unordered_map<int, int> correctIndeces;
-
 class BlocksState
 {
 private:
@@ -54,8 +54,6 @@ struct Node
     Node(BlocksState* value, Node* next = nullptr)
         : value(value), next(next) {}
 };
-
-#include <queue>
 
 struct CompareBlocksState
 {
@@ -137,9 +135,9 @@ int getManhattanDistance(const std::vector<std::vector<int>>& blocks)
 
 std::pair<int, int> getZeroCoordinates(const std::vector<std::vector<int>> blocks)
 {
-    for (int i = 0; i < blocks.size(); ++i)
+    for (std::size_t i = 0; i < blocks.size(); ++i)
     {
-        for (int j = 0; j < blocks[0].size(); ++j)
+        for (std::size_t j = 0; j < blocks[0].size(); ++j)
         {
             if (blocks[i][j] == 0)
             {
@@ -191,9 +189,9 @@ int getInversionsCount(const std::vector<std::vector<int>>& blocks)
     }
 
     int inversionsCount = 0;
-    for (int i = 0; i < arr.size() - 1; ++i)
+    for (std::size_t i = 0; i < arr.size() - 1; ++i)
     {
-        for (int j = i + 1; j < arr.size(); ++j)
+        for (std::size_t j = i + 1; j < arr.size(); ++j)
         {
             if (arr[j] && arr[i] &&  arr[i] > arr[j])
             {
@@ -204,11 +202,16 @@ int getInversionsCount(const std::vector<std::vector<int>>& blocks)
     return inversionsCount;
 }
 
-bool isSolvable(const std::vector<std::vector<int>>& blocks)
+bool isSolvable(const std::vector<std::vector<int>>& blocks, int zeroRowIndex)
 {
     int inversionsCount = getInversionsCount(blocks);
  
-    return (inversionsCount % 2 == 0);
+    if (blocks.size() % 2 == 1)
+    {
+        return (inversionsCount % 2 == 0);
+    }
+
+    return ((inversionsCount + zeroRowIndex) % 2 == 1);
 }
 
 
@@ -272,6 +275,9 @@ int main ()
 
     int input_i;
     std::cin >> input_i;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
     input_i = (input_i == -1) ? n : input_i;
 
     for (std::size_t i = 0; i < input_i; ++i)
@@ -284,23 +290,35 @@ int main ()
         correctIndeces.insert(std::make_pair(i, i));
     }
 
-    for (std::size_t k = 0; k * k < n + 1; ++k)
+    int zeroRowIndex = 0;
+
+    for (std::size_t k = 0; k < side; ++k)
     {
-        for (std::size_t j = 0; j * j < n + 1; ++j)
+        for (std::size_t j = 0; j < side; ++j)
         {
             std::cin >> blocks[k][j];
+            if (blocks[k][j] == 0)
+            {
+                zeroRowIndex = k;
+            }
         }
     }
 
     BlocksState* initialState = new BlocksState(blocks, getManhattanDistance(blocks), "", 0);
 
-    if (!isSolvable(initialState->getBlocks()))
+    if (!isSolvable(initialState->getBlocks(), zeroRowIndex))
     {
         std::cout << -1 << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
     }
     else if (initialState->getManhattanDistance() == 0)
     {
         std::cout << 0 << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
     }
     else
     {
@@ -311,6 +329,9 @@ int main ()
 
         if (solution)
         {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
             std::cout << solution->getRoad().length() << std::endl;
 
             for (char ch : solution->getRoad())
@@ -343,7 +364,7 @@ int main ()
 
         for (BlocksState* state : visited)
         {
-            delete state;  // Deallocate all visited BlocksState objects
+            delete state;
         }
     }
 
