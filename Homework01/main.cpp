@@ -276,7 +276,7 @@ int main ()
     int input_i;
     std::cin >> input_i;
 
-    auto start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
 
     input_i = (input_i == -1) ? n : input_i;
 
@@ -309,16 +309,16 @@ int main ()
     if (!isSolvable(initialState->getBlocks(), zeroRowIndex))
     {
         std::cout << -1 << std::endl;
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
+        // auto end = std::chrono::high_resolution_clock::now();
+        // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
     }
     else if (initialState->getManhattanDistance() == 0)
     {
         std::cout << 0 << std::endl;
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
+        // auto end = std::chrono::high_resolution_clock::now();
+        // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
     }
     else
     {
@@ -329,9 +329,9 @@ int main ()
 
         if (solution)
         {
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
+            // auto end = std::chrono::high_resolution_clock::now();
+            // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            // std::cout << "Program executed for " << duration.count() << " milliseconds (" << duration.count() / 1000.0 <<  " seconds)" << std::endl;
             std::cout << solution->getRoad().length() << std::endl;
 
             for (char ch : solution->getRoad())
