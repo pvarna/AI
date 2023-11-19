@@ -3,6 +3,9 @@
 #include <unordered_set>
 #include <random>
 #include <algorithm>
+#include <fstream>
+
+std::ofstream out("res.txt");
 
 std::random_device rd;
 std::mt19937 gen(rd());
@@ -95,6 +98,38 @@ std::vector<Individual> generateInitialPopulation()
 
     return std::vector<Individual>(population.begin(), population.end());
 }
+
+// std::vector<Individual> generateInitialPopulation() 
+// {
+//     std::vector<Individual> population;
+
+//     // Sort items by value-to-weight ratio (descending order)
+//     std::vector<int> indices(N);
+//     std::iota(indices.begin(), indices.end(), 0);
+//     std::sort(indices.begin(), indices.end(), [&](int i, int j) {
+//         return static_cast<double>(items[i].value) / items[i].weight >
+//                static_cast<double>(items[j].value) / items[j].weight;
+//     });
+
+//     // Greedy selection of items for the knapsack
+//     for (int i = 0; i < N; ++i) 
+//     {
+//         int weight = 0;
+//         std::vector<bool> bits(N, false);
+
+//         for (int j = 0; j <= i; ++j) 
+//         {
+//             if (weight + items[indices[j]].weight <= M) {
+//                 weight += items[indices[j]].weight;
+//                 bits[indices[j]] = true;
+//             }
+//         }
+
+//         population.push_back(Individual{bits});
+//     }
+
+//     return population;
+// }
 
 std::vector<Individual> selection(const std::vector<Individual>& population, int tournamentSize = 3) 
 {
@@ -276,6 +311,7 @@ void printGeneration(const std::vector<Individual>& population, int index)
     double averageFitness = sumFitness / population.size();
     // std::cout << "Average fitness: " << averageFitness << std::endl;
     //std::cout << "Max fitness: " << maxFitness << std::endl;
+    out << maxFitness << std::endl;
     if (index % 1000 == 0)
     {
         std::cout << maxFitness << std::endl;
