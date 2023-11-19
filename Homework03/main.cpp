@@ -4,9 +4,11 @@
 #include <random>
 #include <algorithm>
 
+std::random_device rd;
+std::mt19937 gen(rd());
 int M, N;
 const double CROSSOVER_RATE = 0.53;
-const double MUTATION_RATE = 0.013;
+const double MUTATION_RATE = 0.1;
 const double REPRODUCTION_RATE = 0.15;
 
 struct Item
@@ -75,8 +77,6 @@ struct Individual
 
 std::vector<Individual> generateInitialPopulation() 
 {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::unordered_set<Individual, Individual::HashFunction> population;
     std::uniform_int_distribution<int> dis(0, 1);
 
@@ -96,44 +96,73 @@ std::vector<Individual> generateInitialPopulation()
     return std::vector<Individual>(population.begin(), population.end());
 }
 
-std::vector<Individual> tournamentSelection(const std::vector<Individual>& population, int tournamentSize) {
-    std::vector<Individual> selectedParents;
+std::vector<Individual> selection(const std::vector<Individual>& population, int tournamentSize = 3) 
+{
+    std::vector<Individual> parents;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, population.size() - 1);
+    while (parents.size() < 2) 
+    {
+        std::vector<Individual> tournament;
 
-    while (selectedParents.size() < 2) {
-        // Randomly select 'tournamentSize' individuals for the tournament
-        std::vector<Individual> tournamentParticipants;
-        for (int i = 0; i < tournamentSize; ++i) {
-            int index = dis(gen);
-            tournamentParticipants.push_back(population[index]);
+        // Randomly select individuals for the tournament
+        while (tournament.size() < tournamentSize) 
+        {
+            int index = rand() % population.size();
+            tournament.push_back(population[index]);
         }
 
-        // Find the best individual within the tournament
-        Individual best = tournamentParticipants[0];
-        for (size_t i = 1; i < tournamentParticipants.size(); ++i) {
-            if (tournamentParticipants[i].fitness() > best.fitness()) {
-                best = tournamentParticipants[i];
+        // Find the best individual in the tournament
+        Individual best = tournament[0];
+        for (int i = 1; i < tournament.size(); ++i) 
+        {
+            if (tournament[i].fitness() > best.fitness()) 
+            {
+                best = tournament[i];
             }
         }
 
-        selectedParents.push_back(best);
+        parents.push_back(best);
     }
 
-    return selectedParents;
+    return parents;
 }
 
-std::vector<Individual> crossover(const std::vector<Individual>& parents)
+std::vector<Individual> twoPointerCrossover(const std::vector<Individual>& parents)
 {
     std::vector<Individual> children;
 
-    std::vector<bool> child1(parents[0].bits.begin(), parents[0].bits.begin() + N / 2);
-    child1.insert(child1.end(), parents[1].bits.begin() + N / 2, parents[1].bits.end());
+    std::uniform_int_distribution<int> dis(0, N - 1);
+    int point1 = dis(gen);
+    int point2 = dis(gen);
 
-    std::vector<bool> child2(parents[1].bits.begin() + N / 2, parents[1].bits.end());
-    child2.insert(child2.end(), parents[0].bits.begin(), parents[0].bits.begin() + N / 2);
+    // Ensure point1 and point2 are different
+    while (point1 == point2) 
+    {
+        point2 = dis(gen);
+    }
+
+    // Make sure point1 is smaller than point2
+    if (point1 > point2) 
+    {
+        std::swap(point1, point2);
+    }
+
+    std::vector<bool> child1, child2;
+
+    // Perform crossover for each parent
+    for (int i = 0; i < N; ++i)
+    {
+        if (i >= point1 && i <= point2) 
+        {
+            child1.push_back(parents[1].bits[i]);
+            child2.push_back(parents[0].bits[i]);
+        } 
+        else 
+        {
+            child1.push_back(parents[0].bits[i]);
+            child2.push_back(parents[1].bits[i]);
+        }
+    }
 
     children.push_back(Individual{child1});
     children.push_back(Individual{child2});
@@ -141,10 +170,36 @@ std::vector<Individual> crossover(const std::vector<Individual>& parents)
     return children;
 }
 
+std::vector<Individual> uniformCrossover(const std::vector<Individual>& parents)
+{
+    std::vector<Individual> children;
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    std::vector<bool> child1, child2;
+
+    for (int i = 0; i < N; ++i) 
+    {
+        if (dis(gen) < 0.5) 
+        { 
+            child1.push_back(parents[0].bits[i]);
+            child2.push_back(parents[1].bits[i]);
+        } 
+        else 
+        {
+            child1.push_back(parents[1].bits[i]);
+            child2.push_back(parents[0].bits[i]);
+        }
+    }
+
+    children.push_back(Individual{child1});
+    children.push_back(Individual{child2});
+
+    return children;
+}
+
+
 void mutate(std::vector<Individual>& individuals)
 {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dis(0.0, 1.0);
     for (Individual& individual : individuals)
     {
@@ -158,17 +213,28 @@ void mutate(std::vector<Individual>& individuals)
     }
 }
 
+bool compareIndividuals(const Individual& i1, const Individual& i2)
+{
+    return (i1.fitness() > i2.fitness());
+}
+
 std::vector<Individual> nextGeneration(const std::vector<Individual>& population)
 {
     std::vector<Individual> nextGeneration;
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    // int numberOfElites = 2;
+
+    // std::vector<Individual> sortedPopulation = population;
+    // std::sort(sortedPopulation.begin(), sortedPopulation.end(), compareIndividuals);
+
+    // nextGeneration.insert(nextGeneration.end(), sortedPopulation.begin(), sortedPopulation.begin() + numberOfElites);
+
     while (nextGeneration.size() < population.size())
     {
         std::vector<Individual> children;
 
-        std::vector<Individual> parents = tournamentSelection(population, 2);
+        std::vector<Individual> parents = selection(population);
 
         if (dis(gen) < REPRODUCTION_RATE)
         {
@@ -178,7 +244,7 @@ std::vector<Individual> nextGeneration(const std::vector<Individual>& population
         {
             if (dis(gen) < CROSSOVER_RATE)
             {
-                children = crossover(parents);
+                children = uniformCrossover(parents);
             }
 
             if (dis(gen) < MUTATION_RATE)
@@ -194,7 +260,7 @@ std::vector<Individual> nextGeneration(const std::vector<Individual>& population
     return std::vector<Individual>(nextGeneration.begin(), nextGeneration.begin() + population.size());
 }
 
-void printGeneration(const std::vector<Individual>& population)
+void printGeneration(const std::vector<Individual>& population, int index)
 {
     double sumFitness = 0.0;
     int maxFitness = 0;
@@ -208,18 +274,22 @@ void printGeneration(const std::vector<Individual>& population)
     }
 
     double averageFitness = sumFitness / population.size();
-    std::cout << "Average fitness: " << averageFitness << std::endl;
-    std::cout << "Max fitness: " << maxFitness << std::endl;
-    std::cout << "-----------------------------------------------------" << std::endl;
+    // std::cout << "Average fitness: " << averageFitness << std::endl;
+    //std::cout << "Max fitness: " << maxFitness << std::endl;
+    if (index % 1000 == 0)
+    {
+        std::cout << maxFitness << std::endl;
+    }
+    //std::cout << "-----------------------------------------------------" << std::endl;
 }
 
 void solveKnapsack()
 {
     std::vector<Individual> population = generateInitialPopulation();
 
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 10000; ++i)
     {
-        printGeneration(population);
+        printGeneration(population, i);
         population = nextGeneration(population);
     }
 }
@@ -240,4 +310,3 @@ int main ()
 
     return 0;
 }
-
